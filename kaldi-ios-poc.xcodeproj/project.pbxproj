@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		49850F411D0533FD00D164F3 /* libkaldi-x86_64.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 49850F3D1D0533FD00D164F3 /* libkaldi-x86_64.a */; };
+		49850F421D0533FD00D164F3 /* libkaldi-arm64.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 49850F3E1D0533FD00D164F3 /* libkaldi-arm64.a */; };
+		49850F431D0533FD00D164F3 /* libkaldi-armv7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 49850F3F1D0533FD00D164F3 /* libkaldi-armv7.a */; };
+		49850F441D0533FD00D164F3 /* libkaldi-i386.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 49850F401D0533FD00D164F3 /* libkaldi-i386.a */; };
 		EE529AD51A1BE6F8009096B0 /* online_nnet2_decoding.conf in Resources */ = {isa = PBXBuildFile; fileRef = EE529AD41A1BE6F8009096B0 /* online_nnet2_decoding.conf */; };
 		EE529AEC1A1BF854009096B0 /* ivector_extractor.conf in Resources */ = {isa = PBXBuildFile; fileRef = EE529AE81A1BF854009096B0 /* ivector_extractor.conf */; };
 		EE529AED1A1BF854009096B0 /* mfcc.conf in Resources */ = {isa = PBXBuildFile; fileRef = EE529AE91A1BF854009096B0 /* mfcc.conf */; };
@@ -35,7 +39,6 @@
 		EE8BB5EE1A2CE517001B4679 /* monday.wav in Resources */ = {isa = PBXBuildFile; fileRef = EE8BB5EA1A2CE517001B4679 /* monday.wav */; };
 		EE8BB5EF1A2CE517001B4679 /* tuesday.wav in Resources */ = {isa = PBXBuildFile; fileRef = EE8BB5EB1A2CE517001B4679 /* tuesday.wav */; };
 		EE8BB5F01A2CE517001B4679 /* wednesday.wav in Resources */ = {isa = PBXBuildFile; fileRef = EE8BB5EC1A2CE517001B4679 /* wednesday.wav */; };
-		EE8BB5F31A2D2B73001B4679 /* kaldi-iPhoneOS-armv7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EE8BB5F21A2D2B73001B4679 /* kaldi-iPhoneOS-armv7.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +52,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		49850F3D1D0533FD00D164F3 /* libkaldi-x86_64.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "libkaldi-x86_64.a"; sourceTree = "<group>"; };
+		49850F3E1D0533FD00D164F3 /* libkaldi-arm64.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "libkaldi-arm64.a"; sourceTree = "<group>"; };
+		49850F3F1D0533FD00D164F3 /* libkaldi-armv7.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "libkaldi-armv7.a"; sourceTree = "<group>"; };
+		49850F401D0533FD00D164F3 /* libkaldi-i386.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "libkaldi-i386.a"; sourceTree = "<group>"; };
 		EE529AD41A1BE6F8009096B0 /* online_nnet2_decoding.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = online_nnet2_decoding.conf; sourceTree = "<group>"; };
 		EE529AE81A1BF854009096B0 /* ivector_extractor.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ivector_extractor.conf; sourceTree = "<group>"; };
 		EE529AE91A1BF854009096B0 /* mfcc.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mfcc.conf; sourceTree = "<group>"; };
@@ -487,7 +494,6 @@
 		EE8BB5EA1A2CE517001B4679 /* monday.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = monday.wav; sourceTree = "<group>"; };
 		EE8BB5EB1A2CE517001B4679 /* tuesday.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = tuesday.wav; sourceTree = "<group>"; };
 		EE8BB5EC1A2CE517001B4679 /* wednesday.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = wednesday.wav; sourceTree = "<group>"; };
-		EE8BB5F21A2D2B73001B4679 /* kaldi-iPhoneOS-armv7.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = "kaldi-iPhoneOS-armv7.a"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -495,9 +501,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49850F411D0533FD00D164F3 /* libkaldi-x86_64.a in Frameworks */,
+				49850F441D0533FD00D164F3 /* libkaldi-i386.a in Frameworks */,
 				EE8B80E81A16C92B007F455E /* Accelerate.framework in Frameworks */,
-				EE8BB5F31A2D2B73001B4679 /* kaldi-iPhoneOS-armv7.a in Frameworks */,
 				EE8B80261A16C568007F455E /* libfst.a in Frameworks */,
+				49850F431D0533FD00D164F3 /* libkaldi-armv7.a in Frameworks */,
+				49850F421D0533FD00D164F3 /* libkaldi-arm64.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -544,7 +553,10 @@
 		EE8B7FED1A16A3A9007F455E = {
 			isa = PBXGroup;
 			children = (
-				EE8BB5F21A2D2B73001B4679 /* kaldi-iPhoneOS-armv7.a */,
+				49850F3D1D0533FD00D164F3 /* libkaldi-x86_64.a */,
+				49850F3E1D0533FD00D164F3 /* libkaldi-arm64.a */,
+				49850F3F1D0533FD00D164F3 /* libkaldi-armv7.a */,
+				49850F401D0533FD00D164F3 /* libkaldi-i386.a */,
 				EE8BB5F11A2CEF7B001B4679 /* includes */,
 				EE529AF81A1C00BF009096B0 /* kaldi-util */,
 				EE529AD31A1BE69F009096B0 /* ASR Resources */,
@@ -1456,6 +1468,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LIBRARY = "libstdc++";
+				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_CLAPACK=1",
 					"HAVE_POSIX_MEMALIGN=1",
@@ -1484,6 +1497,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_CXX_LIBRARY = "libstdc++";
+				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"HAVE_POSIX_MEMALIGN=1",
 					"HAVE_CLAPACK=1",

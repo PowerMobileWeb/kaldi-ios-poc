@@ -74,33 +74,39 @@ struct OnlineNnet2FeaturePipelineConfig {
   // the following contains the type of options that you could give to
   // compute-and-process-kaldi-pitch-feats.
   std::string online_pitch_config;
-
+  
   // The configuration variables in ivector_extraction_config relate to the
   // iVector extractor and options related to it, see type
   // OnlineIvectorExtractionConfig.
   std::string ivector_extraction_config;
 
+  // Config that relates to how we weight silence for (ivector) adaptation
+  // this is registered directly to the command line as you might want to
+  // play with it in test time.
+  OnlineSilenceWeightingConfig silence_weighting_config;
+
   OnlineNnet2FeaturePipelineConfig():
       feature_type("mfcc"), add_pitch(false) { }
       
 
-  void Register(OptionsItf *po) {
-    po->Register("feature-type", &feature_type,
-                 "Base feature type [mfcc, plp, fbank]");
-    po->Register("mfcc-config", &mfcc_config, "Configuration file for "
-                 "MFCC features (e.g. conf/mfcc.conf)");
-    po->Register("plp-config", &plp_config, "Configuration file for "
-                 "PLP features (e.g. conf/plp.conf)");
-    po->Register("fbank-config", &fbank_config, "Configuration file for "
-                 "filterbank features (e.g. conf/fbank.conf)");
-    po->Register("add-pitch", &add_pitch, "Append pitch features to raw "
-                 "MFCC/PLP/filterbank features [but not for iVector extraction]");
-    po->Register("online-pitch-config", &online_pitch_config, "Configuration "
-                 "file for online pitch features, if --add-pitch=true (e.g. "
-                 "conf/online_pitch.conf)");
-    po->Register("ivector-extraction-config", &ivector_extraction_config,
-                 "Configuration file for online iVector extraction, "
-                 "see class OnlineIvectorExtractionConfig in the code");
+  void Register(OptionsItf *opts) {
+    opts->Register("feature-type", &feature_type,
+                   "Base feature type [mfcc, plp, fbank]");
+    opts->Register("mfcc-config", &mfcc_config, "Configuration file for "
+                   "MFCC features (e.g. conf/mfcc.conf)");
+    opts->Register("plp-config", &plp_config, "Configuration file for "
+                   "PLP features (e.g. conf/plp.conf)");
+    opts->Register("fbank-config", &fbank_config, "Configuration file for "
+                   "filterbank features (e.g. conf/fbank.conf)");
+    opts->Register("add-pitch", &add_pitch, "Append pitch features to raw "
+                   "MFCC/PLP/filterbank features [but not for iVector extraction]");
+    opts->Register("online-pitch-config", &online_pitch_config, "Configuration "
+                   "file for online pitch features, if --add-pitch=true (e.g. "
+                   "conf/online_pitch.conf)");
+    opts->Register("ivector-extraction-config", &ivector_extraction_config,
+                   "Configuration file for online iVector extraction, "
+                   "see class OnlineIvectorExtractionConfig in the code");
+    silence_weighting_config.RegisterWithPrefix("ivector-silence-weighting", opts);
   }
 };
 
@@ -141,6 +147,13 @@ struct OnlineNnet2FeaturePipelineInfo {
   bool use_ivectors;
   OnlineIvectorExtractionInfo ivector_extractor_info;
 
+  // Config for weighting silence in iVector adaptation.
+  // We declare this outside of ivector_extractor_info... it was
+  // just easier to set up the code that way; and also we think
+  // it's the kind of thing you might want to play with directly
+  // on the command line instead of inside sub-config-files.
+  OnlineSilenceWeightingConfig silence_weighting_config;
+  
   int32 IvectorDim() { return ivector_extractor_info.extractor.IvectorDim(); }
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(OnlineNnet2FeaturePipelineInfo);
@@ -202,10 +215,14 @@ class OnlineNnet2FeaturePipeline: public OnlineFeatureInterface {
   /// to assert it equals what's in the config.
   void AcceptWaveform(BaseFloat sampling_rate,
                       const VectorBase<BaseFloat> &waveform);
-  
-  BaseFloat FrameShiftInSeconds() const {
-    return info_.FrameShiftInSeconds();
-  }
+
+  /// This is used in case you are downweighting silence in the iVector
+  /// estimation using the decoder traceback.
+  void UpdateFrameWeights(
+      const std::vector<std::pair<int32, BaseFloat> > &delta_weights);
+
+
+  BaseFloat FrameShiftInSeconds() const { return info_.FrameShiftInSeconds(); }
 
   /// If you call InputFinished(), it tells the class you won't be providing any
   /// more waveform.  This will help flush out the last few frames of delta or
@@ -249,4 +266,4 @@ class OnlineNnet2FeaturePipeline: public OnlineFeatureInterface {
 
 
 
-#endif  // KALDI_ONLINE2_ONLINE_FEATURE_PIPELINE_H_
+#endif  // KALDI_ONLINE2_ONLINE_NNET2_FEATURE_PIPELINE_H_

@@ -1,8 +1,11 @@
 // ivector/ivector-extractor.h
 
 // Copyright 2013-2014    Daniel Povey
+//           2015         David Snyder
 
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -45,13 +48,23 @@ namespace kaldi {
 // "acoustic_weight" is not read by any class declared in this header; it has to
 // be applied by calling IvectorExtractorUtteranceStats::Scale() before
 // obtaining the iVector.
+// The same is true of max_count: it has to be applied by programs themselves
+// e.g. see ../ivectorbin/ivector-extract.cc.
 struct IvectorEstimationOptions {
   double acoustic_weight;
-  IvectorEstimationOptions(): acoustic_weight(1.0) {}
-  void Register(OptionsItf *po) {
-    po->Register("acoustic-weight", &acoustic_weight,
-                 "Weight on part of auxf that involves the data (e.g. 0.2); "
-                 "if this weight is small, the prior will have more effect.");
+  double max_count;
+  IvectorEstimationOptions(): acoustic_weight(1.0), max_count(0.0) {}
+  void Register(OptionsItf *opts) {
+    opts->Register("acoustic-weight", &acoustic_weight,
+                   "Weight on part of auxf that involves the data (e.g. 0.2); "
+                   "if this weight is small, the prior will have more effect.");
+    opts->Register("max-count", &max_count,
+                   "Maximum frame count (affects prior scaling): if >0, the prior "
+                   "term will be scaled up after the frame count exceeds this "
+                   "value.  Note that this count is considered after posterior "
+                   "scaling (e.g. --acoustic-weight option, or scale argument to "
+                   "scale-post), so you would normally use a cutoff 10 times "
+                   "smaller than the corresponding number of frames.");
   }
 };
 
@@ -77,8 +90,10 @@ class IvectorExtractorUtteranceStats {
 
   void AccStats(const MatrixBase<BaseFloat> &feats,
                 const Posterior &post);
-  
+
   void Scale(double scale); // Used to apply acoustic scale.
+
+  double NumFrames() { return gamma_.Sum(); }
 
  protected:
   friend class IvectorExtractor;
@@ -96,12 +111,12 @@ struct IvectorExtractorOptions {
   bool use_weights;
   IvectorExtractorOptions(): ivector_dim(400), num_iters(2),
                              use_weights(true) { }
-  void Register(OptionsItf *po) {
-    po->Register("num-iters", &num_iters, "Number of iterations in "
-                 "iVector estimation (>1 needed due to weights)");
-    po->Register("ivector-dim", &ivector_dim, "Dimension of iVector");
-    po->Register("use-weights", &use_weights, "If true, regress the "
-                 "log-weights on the iVector");
+  void Register(OptionsItf *opts) {
+    opts->Register("num-iters", &num_iters, "Number of iterations in "
+                   "iVector estimation (>1 needed due to weights)");
+    opts->Register("ivector-dim", &ivector_dim, "Dimension of iVector");
+    opts->Register("use-weights", &use_weights, "If true, regress the "
+                   "log-weights on the iVector");
   }
 };
 
@@ -124,7 +139,7 @@ class IvectorExtractor {
   friend class OnlineIvectorEstimationStats;
 
   IvectorExtractor(): prior_offset_(0.0) { }
-  
+
   IvectorExtractor(
       const IvectorExtractorOptions &opts,
       const FullGmm &fgmm);
@@ -142,13 +157,13 @@ class IvectorExtractor {
   /// zero; its first dimension has a nonzero offset.  This function returns
   /// that offset.
   double PriorOffset() const { return prior_offset_; }
-  
+
   /// Returns the log-likelihood objective function, summed over frames,
   /// for this distribution of iVectors (a point distribution, if var == NULL).
   double GetAuxf(const IvectorExtractorUtteranceStats &utt_stats,
                  const VectorBase<double> &mean,
                  const SpMatrix<double> *var = NULL) const;
-  
+
   /// Returns the data-dependent part of the log-likelihood objective function,
   /// summed over frames.  If variance pointer is NULL, uses point value.
   double GetAcousticAuxf(const IvectorExtractorUtteranceStats &utt_stats,
@@ -174,7 +189,7 @@ class IvectorExtractor {
   double GetAcousticAuxfMean(
       const IvectorExtractorUtteranceStats &utt_stats,
       const VectorBase<double> &mean,
-      const SpMatrix<double> *var = NULL) const;      
+      const SpMatrix<double> *var = NULL) const;
 
   /// This returns the part of the acoustic auxf that relates to the
   /// gconsts of the Gaussians.
@@ -187,8 +202,8 @@ class IvectorExtractor {
   double GetAcousticAuxfWeight(
       const IvectorExtractorUtteranceStats &utt_stats,
       const VectorBase<double> &mean,
-      const SpMatrix<double> *var = NULL) const;      
-  
+      const SpMatrix<double> *var = NULL) const;
+
 
   /// Gets the linear and quadratic terms in the distribution over iVectors, but
   /// only the terms arising from the Gaussian means (i.e. not the weights
@@ -222,13 +237,12 @@ class IvectorExtractor {
 
   // Note: the function GetStats no longer exists due to code refactoring.
   // Instead of this->GetStats(feats, posterior, &utt_stats), call
-  // utt_stats.AccStats(feats, posterior).  
+  // utt_stats.AccStats(feats, posterior).
 
   int32 FeatDim() const;
   int32 IvectorDim() const;
   int32 NumGauss() const;
   bool IvectorDependentWeights() const { return w_.NumRows() != 0; }
-  
   void Write(std::ostream &os, bool binary) const;
   void Read(std::istream &is, bool binary);
 
@@ -238,14 +252,14 @@ class IvectorExtractor {
   void ComputeDerivedVars();
   void ComputeDerivedVars(int32 i);
   friend class IvectorExtractorComputeDerivedVarsClass;
-  
+
   // Imagine we'll project the iVectors with transformation T, so apply T^{-1}
   // where necessary to keep the model equivalent.  Used to keep unit variance
   // (like prior re-estimation).
   void TransformIvectors(const MatrixBase<double> &T,
                          double new_prior_offset);
-  
-  
+
+
   /// Weight projection vectors, if used.  Dimension is [I][S]
   Matrix<double> w_;
 
@@ -254,16 +268,16 @@ class IvectorExtractor {
   /// as a way of making sure the log-probs are comparable between systems with
   /// and without weight projection matrices.
   Vector<double> w_vec_;
-  
+
   /// Ivector-subspace projection matrices, dimension is [I][D][S].
   /// The I'th matrix projects from ivector-space to Gaussian mean.
   /// There is no mean offset to add-- we deal with it by having
   /// a prior with a nonzero mean.
-  std::vector<Matrix<double> > M_; 
+  std::vector<Matrix<double> > M_;
 
   /// Inverse variances of speaker-adapted model, dimension [I][D][D].
   std::vector<SpMatrix<double> > Sigma_inv_;
-  
+
   /// 1st dim of the prior over the ivector has an offset, so it is not zero.
   /// This is used to handle the global offset of the speaker-adapted means in a
   /// simple way.
@@ -275,11 +289,11 @@ class IvectorExtractor {
   /// The constant term in the log-likelihood of each Gaussian (not
   /// counting any weight).
   Vector<double> gconsts_;
-  
+
   /// U_i = M_i^T \Sigma_i^{-1} M_i is a quantity that comes up
   /// in ivector estimation.  This is conceptually a
-  /// std::vector<SpMatrix<double> >, but we store the packed-data 
-  /// in the rows of a matrix, which gives us an efficiency 
+  /// std::vector<SpMatrix<double> >, but we store the packed-data
+  /// in the rows of a matrix, which gives us an efficiency
   /// improvement (we can use matrix-multiplies).
   Matrix<double> U_;
 
@@ -290,25 +304,29 @@ class IvectorExtractor {
   // of quadratic_term to 1.0, which mathematically is the least they can be,
   // due to the prior term.
   static void InvertWithFlooring(const SpMatrix<double> &quadratic_term,
-                                 SpMatrix<double> *var);  
+                                 SpMatrix<double> *var);
 };
 
 /**
    This class helps us to efficiently estimate iVectors in situations where the
-   data is coming in frame by frame. 
+   data is coming in frame by frame.
  */
 class OnlineIvectorEstimationStats {
  public:
+  // Search above for max_count to see an explanation; if nonzero, it will
+  // put a higher weight on the prior (vs. the stats) once the count passes
+  // that value.
   OnlineIvectorEstimationStats(int32 ivector_dim,
-                               BaseFloat prior_offset);
+                               BaseFloat prior_offset,
+                               BaseFloat max_count);
 
   OnlineIvectorEstimationStats(const OnlineIvectorEstimationStats &other);
 
-  
+
   void AccStats(const IvectorExtractor &extractor,
                 const VectorBase<BaseFloat> &feature,
                 const std::vector<std::pair<int32, BaseFloat> > &gauss_post);
-  
+
   int32 IvectorDim() const { return linear_term_.Dim(); }
 
   /// This function gets the current estimate of the iVector.  Internally it
@@ -331,7 +349,7 @@ class OnlineIvectorEstimationStats {
 
   double PriorOffset() const { return prior_offset_; }
 
-  /// ObjfChange returns the change in objective function per frame from
+  /// ObjfChange returns the change in objective function *per frame* from
   /// using the default value [ prior_offset_, 0, 0, ... ] to
   /// using the provided value; should be >= 0, if "ivector" is
   /// a value we estimated.  This is for diagnostics.
@@ -344,7 +362,19 @@ class OnlineIvectorEstimationStats {
   /// apply the scaling to the prior term.
   void Scale(double scale);
 
-  // Use the default assignment operator
+  void Write(std::ostream &os, bool binary) const;
+  void Read(std::istream &is, bool binary);
+
+  // Override the default assignment operator
+  inline OnlineIvectorEstimationStats &operator=(const OnlineIvectorEstimationStats &other) {
+	  this->prior_offset_ = other.prior_offset_;
+	  this->max_count_ = other.max_count_;
+	  this->num_frames_ = other.num_frames_;
+	  this->quadratic_term_=other.quadratic_term_;
+	  this->linear_term_=other.linear_term_;
+	  return *this;
+  }
+
  protected:
   /// Returns objective function per frame, at this iVector value.
   double Objf(const VectorBase<double> &ivector) const;
@@ -352,9 +382,10 @@ class OnlineIvectorEstimationStats {
   /// Returns objective function evaluated at the point
   /// [ prior_offset_, 0, 0, 0, ... ]... this is used in diagnostics.
   double DefaultObjf() const;
-  
+
   friend class IvectorExtractor;
   double prior_offset_;
+  double max_count_;
   double num_frames_;  // num frames (weighted, if applicable).
   SpMatrix<double> quadratic_term_;
   Vector<double> linear_term_;
@@ -363,8 +394,10 @@ class OnlineIvectorEstimationStats {
 
 // This code obtains periodically (for each "ivector_period" frames, e.g. 10
 // frames), an estimate of the iVector including all frames up to that point.
-// This emulates what you could do in an online/streaming algorithm; its use
-// is for neural network training in a way that's matched to online decoding.
+// This emulates what you could do in an online/streaming algorithm; its use is
+// for neural network training in a way that's matched to online decoding.
+// [note: I don't believe we are currently using the program,
+// ivector-extract-online.cc, that calls this function, in any of the scripts.].
 // Caution: this program outputs the raw iVectors, where the first component
 // will generally be very positive.  You probably want to subtract PriorOffset()
 // from the first element of each row of the output before writing it out.
@@ -379,6 +412,7 @@ double EstimateIvectorsOnline(
     const IvectorExtractor &extractor,
     int32 ivector_period,
     int32 num_cg_iters,
+    BaseFloat max_count,
     Matrix<BaseFloat> *ivectors);
 
 
@@ -394,17 +428,17 @@ struct IvectorExtractorStatsOptions {
                          compute_auxf(true),
                          num_samples_for_weights(10),
                          cache_size(100) { }
-  void Register(OptionsItf *po) {
-    po->Register("update-variances", &update_variances, "If true, update the "
-                 "Gaussian variances");
-    po->Register("compute-auxf", &compute_auxf, "If true, compute the "
-                 "auxiliary functions on training data; can be used to "
-                 "debug and check convergence.");
-    po->Register("num-samples-for-weights", &num_samples_for_weights,
-                 "Number of samples from iVector distribution to use "
-                 "for accumulating stats for weight update.  Must be >1");
-    po->Register("cache-size", &cache_size, "Size of an internal "
-                 "cache (not critical, only affects speed/memory)");
+  void Register(OptionsItf *opts) {
+    opts->Register("update-variances", &update_variances, "If true, update the "
+                   "Gaussian variances");
+    opts->Register("compute-auxf", &compute_auxf, "If true, compute the "
+                   "auxiliary functions on training data; can be used to "
+                   "debug and check convergence.");
+    opts->Register("num-samples-for-weights", &num_samples_for_weights,
+                   "Number of samples from iVector distribution to use "
+                   "for accumulating stats for weight update.  Must be >1");
+    opts->Register("cache-size", &cache_size, "Size of an internal "
+                   "cache (not critical, only affects speed/memory)");
   }
 };
 
@@ -414,15 +448,21 @@ struct IvectorExtractorEstimationOptions {
   double variance_floor_factor;
   double gaussian_min_count;
   int32 num_threads;
+  bool diagonalize;
   IvectorExtractorEstimationOptions(): variance_floor_factor(0.1),
-                                       gaussian_min_count(100.0) { }
-  void Register(OptionsItf *po) {
-    po->Register("variance-floor-factor", &variance_floor_factor,
-                 "Factor that determines variance flooring (we floor each covar "
-                 "to this times global average covariance");
-    po->Register("gaussian-min-count", &gaussian_min_count,
-                 "Minimum total count per Gaussian, below which we refuse to "
-                 "update any associated parameters.");
+                                       gaussian_min_count(100.0),
+                                       diagonalize(true) { }
+  void Register(OptionsItf *opts) {
+    opts->Register("variance-floor-factor", &variance_floor_factor,
+                   "Factor that determines variance flooring (we floor each covar "
+                   "to this times global average covariance");
+    opts->Register("gaussian-min-count", &gaussian_min_count,
+                   "Minimum total count per Gaussian, below which we refuse to "
+                   "update any associated parameters.");
+    opts->Register("diagonalize", &diagonalize,
+                   "If true, diagonalize the quadratic term in the "
+                   "objective function. This reorders the ivector dimensions"
+                   "from most to least important.");
   }
 };
 
@@ -436,12 +476,12 @@ class IvectorExtractorStats {
   friend class IvectorExtractor;
 
   IvectorExtractorStats(): tot_auxf_(0.0), R_num_cached_(0), num_ivectors_(0) { }
-  
+
   IvectorExtractorStats(const IvectorExtractor &extractor,
                         const IvectorExtractorStatsOptions &stats_opts);
-  
+
   void Add(const IvectorExtractorStats &other);
-  
+
   void AccStatsForUtterance(const IvectorExtractor &extractor,
                             const MatrixBase<BaseFloat> &feats,
                             const Posterior &post);
@@ -453,13 +493,13 @@ class IvectorExtractorStats {
   double AccStatsForUtterance(const IvectorExtractor &extractor,
                               const MatrixBase<BaseFloat> &feats,
                               const FullGmm &fgmm);
-  
+
   void Read(std::istream &is, bool binary, bool add = false);
 
   void Write(std::ostream &os, bool binary); // non-const version; relates to cache.
 
   // const version of Write; may use extra memory if we have stuff cached
-  void Write(std::ostream &os, bool binary) const; 
+  void Write(std::ostream &os, bool binary) const;
 
   /// Returns the objf improvement per frame.
   double Update(const IvectorExtractorEstimationOptions &opts,
@@ -467,13 +507,18 @@ class IvectorExtractorStats {
 
   double AuxfPerFrame() { return tot_auxf_ / gamma_.Sum(); }
 
+  /// Prints the proportion of the variance explained by
+  /// the Ivector model versus the Gaussians.
+  void IvectorVarianceDiagnostic(const IvectorExtractor &extractor);
+
   // Copy constructor.
   explicit IvectorExtractorStats (const IvectorExtractorStats &other);
+
  protected:
   friend class IvectorExtractorUpdateProjectionClass;
   friend class IvectorExtractorUpdateWeightClass;
 
-  
+
   // This is called by AccStatsForUtterance
   void CommitStatsForUtterance(const IvectorExtractor &extractor,
                                const IvectorExtractorUtteranceStats &utt_stats);
@@ -487,7 +532,7 @@ class IvectorExtractorStats {
 
   /// Flushes the cache for the R_ stats.
   void FlushCache();
-  
+
   /// Commit the stats used to update the variance.
   void CommitStatsForSigma(const IvectorExtractor &extractor,
                            const IvectorExtractorUtteranceStats &utt_stats);
@@ -499,7 +544,7 @@ class IvectorExtractorStats {
                             const VectorBase<double> &ivector,
                             double weight);
 
-  
+
   /// Commit the stats used to update the weight-projection w_.
   void CommitStatsForW(const IvectorExtractor &extractor,
                        const IvectorExtractorUtteranceStats &utt_stats,
@@ -509,7 +554,7 @@ class IvectorExtractorStats {
   /// Commit the stats used to update the prior distribution.
   void CommitStatsForPrior(const VectorBase<double> &ivec_mean,
                            const SpMatrix<double> &ivec_var);
-  
+
   // Updates M.  Returns the objf improvement per frame.
   double UpdateProjections(const IvectorExtractorEstimationOptions &opts,
                            IvectorExtractor *extractor) const;
@@ -536,7 +581,7 @@ class IvectorExtractorStats {
                          IvectorExtractor *extractor) const;
 
 
-  
+
   // Updates the prior; returns obj improvement per frame.
   double UpdatePrior(const IvectorExtractorEstimationOptions &opts,
                      IvectorExtractor *extractor) const;
@@ -544,8 +589,8 @@ class IvectorExtractorStats {
   // Called from UpdatePrior, separating out some code that
   // computes likelihood changes.
   double PriorDiagnostics(double old_prior_offset) const;
-  
-  
+
+
   void CheckDims(const IvectorExtractor &extractor) const;
 
   IvectorExtractorStatsOptions config_; /// Caution: if we read from disk, this
@@ -559,17 +604,17 @@ class IvectorExtractorStats {
 
   /// This mutex guards gamma_ and Y_ (for multi-threaded
   /// update)
-  Mutex gamma_Y_lock_; 
-  
+  Mutex gamma_Y_lock_;
+
   /// Total occupation count for each Gaussian index (zeroth-order stats)
   Vector<double> gamma_;
-  
+
   /// Stats Y_i for estimating projections M.  Dimension is [I][D][S].  The
   /// linear term in M.
   std::vector<Matrix<double> > Y_;
-  
+
   /// This mutex guards R_ (for multi-threaded update)
-  Mutex R_lock_; 
+  Mutex R_lock_;
 
   /// R_i, quadratic term for ivector subspace (M matrix)estimation.  This is a
   /// kind of scatter of ivectors of training speakers, weighted by count for
@@ -580,8 +625,8 @@ class IvectorExtractorStats {
 
   /// This mutex guards R_num_cached_, R_gamma_cache_, R_ivec_cache_ (for
   /// multi-threaded update)
-  Mutex R_cache_lock_; 
-  
+  Mutex R_cache_lock_;
+
   /// To avoid too-frequent rank-1 update of R, which is slow, we cache some
   /// quantities here.
   int32 R_num_cached_;
@@ -592,7 +637,7 @@ class IvectorExtractorStats {
 
   /// This mutex guards Q_ and G_ (for multi-threaded update)
   Mutex weight_stats_lock_;
-  
+
   /// Q_ is like R_ (with same dimensions), except used for weight estimation;
   /// the scatter of ivectors is weighted by the coefficient of the quadratic
   /// term in the expansion for w (the "safe" one, with the max expression).
@@ -617,7 +662,7 @@ class IvectorExtractorStats {
   /// Count of the number of iVectors we trained on.   Need for prior re-estimation.
   /// (make it double not int64 to more easily support weighting later.)
   double num_ivectors_;
-  
+
   /// Sum of all the iVector means.  Needed for prior re-estimation.
   Vector<double> ivector_sum_;
 
@@ -625,6 +670,16 @@ class IvectorExtractorStats {
   SpMatrix<double> ivector_scatter_;
 
  private:
+  /// Computes an orthogonal matrix A from the iVector transform
+  /// T such that T' = A*T is an alternative transform which diagonalizes the
+  /// quadratic_term_ in the iVector estimation objective function. This
+  /// reorders the dimensions of the iVector from most to least important,
+  /// which may be more convenient to view. The transform should not
+  /// affect the performance of systems which use iVectors.
+  void GetOrthogonalIvectorTransform(const SubMatrix<double> &T,
+                                     IvectorExtractor *extractor,
+                                     Matrix<double> *A) const;
+
   IvectorExtractorStats &operator = (const IvectorExtractorStats &other);  // Disallow.
 };
 

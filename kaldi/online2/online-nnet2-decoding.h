@@ -29,7 +29,7 @@
 #include "util/common-utils.h"
 #include "base/kaldi-error.h"
 #include "nnet2/online-nnet2-decodable.h"
-#include "online2/online-nnet2-feature-pipeline.h"
+#include "itf/online-feature-itf.h"
 #include "online2/online-endpoint.h"
 #include "decoder/lattice-faster-online-decoder.h"
 #include "hmm/transition-model.h"
@@ -49,14 +49,14 @@ namespace kaldi {
 // here: namely, OnlineNnet2FeaturePipelineConfig and OnlineEndpointConfig.
 struct OnlineNnet2DecodingConfig {
   
-  LatticeFasterDecoderConfig faster_decoder_opts;
+  LatticeFasterDecoderConfig decoder_opts;
   nnet2::DecodableNnet2OnlineOptions decodable_opts;
   
   OnlineNnet2DecodingConfig() {  decodable_opts.acoustic_scale = 0.1; }
   
-  void Register(OptionsItf *po) {
-    faster_decoder_opts.Register(po);
-    decodable_opts.Register(po);
+  void Register(OptionsItf *opts) {
+    decoder_opts.Register(opts);
+    decodable_opts.Register(opts);
   }
 };
 
@@ -72,10 +72,15 @@ class SingleUtteranceNnet2Decoder {
                               const TransitionModel &tmodel,
                               const nnet2::AmNnet &model,
                               const fst::Fst<fst::StdArc> &fst,
-                              OnlineNnet2FeaturePipeline *feature_pipeline);
+                              OnlineFeatureInterface *feature_pipeline);
   
   /// advance the decoding as far as we can.
   void AdvanceDecoding();
+
+  /// Finalizes the decoding. Cleans up and prunes remaining tokens, so the
+  /// GetLattice() call will return faster.  You must not call this before
+  /// calling (TerminateDecoding() or InputIsFinished()) and then Wait().
+  void FinalizeDecoding();
 
   int32 NumFramesDecoded() const;
   
@@ -94,24 +99,19 @@ class SingleUtteranceNnet2Decoder {
   void GetBestPath(bool end_of_utterance,
                    Lattice *best_path) const;
 
-  /// This function outputs to "final_relative_cost", if non-NULL, a number >= 0
-  /// that will be close to zero if the final-probs were close to the best probs
-  /// active on the final frame.  (the output to final_relative_cost is based on
-  /// the first-pass decoding).  If it's close to zero (e.g. < 5, as a guess),
-  /// it means you reached the end of the grammar with good probability, which
-  /// can be taken as a good sign that the input was OK.
-  BaseFloat FinalRelativeCost() { return decoder_.FinalRelativeCost(); }
 
   /// This function calls EndpointDetected from online-endpoint.h,
   /// with the required arguments.
   bool EndpointDetected(const OnlineEndpointConfig &config);
 
+  const LatticeFasterOnlineDecoder &Decoder() const { return decoder_; }
+  
   ~SingleUtteranceNnet2Decoder() { }
  private:
 
   OnlineNnet2DecodingConfig config_;
 
-  OnlineNnet2FeaturePipeline *feature_pipeline_;
+  OnlineFeatureInterface *feature_pipeline_;
 
   const TransitionModel &tmodel_;
   
